@@ -93,6 +93,13 @@ const App = (() => {
     startLoginClock();
 
     Security.auditLog('PAGE_LOAD', { page: 'dashboard' });
+
+    // Load notification count for admin
+    if (Security.can('canConfig')) {
+      loadNotifications();
+      // Refresh badge every 2 minutes
+      setInterval(loadNotifications, 2 * 60 * 1000);
+    }
   }
 
   /* ── HEADER ──────────────────────────────────────────── */
@@ -377,6 +384,7 @@ const App = (() => {
     const h      = t => q ? highlight(Security.sanitize(t||''), q) : Security.sanitize(t||'');
     const canE   = Security.can('canEdit');
     const canD   = Security.can('canDelete');
+    const canC   = Security.can('canComment');
 
     return `<tr role="row">
       <td class="td-num">${num}</td>
@@ -401,7 +409,8 @@ const App = (() => {
       <td class="td-actions">
         ${canE ? `<button class="btn btn-outline btn-sm" onclick="App.editRecord('${Security.sanitize(r.id||'')}')">✏</button>` : ''}
         ${canD ? `<button class="btn btn-danger btn-sm" onclick="App.deleteRecord('${Security.sanitize(r.id||'')}')">🗑</button>` : ''}
-        ${!canE && !canD ? '<span class="muted-sm">View only</span>' : ''}
+        ${Security.can('canComment') ? `<button class="btn btn-ghost btn-sm" title="Request a change to this record" onclick="App.openCommentModal('${Security.sanitize(r.id||'')}')">💬</button>` : ''}
+        ${!canE && !canD && !Security.can('canComment') ? '<span class="muted-sm">View only</span>' : ''}
       </td>
     </tr>`;
   }
@@ -907,6 +916,168 @@ const App = (() => {
     el._timer = setTimeout(() => { el.style.display = 'none'; }, 4000);
   }
 
+
+  /* ── COMMENT / CHANGE REQUEST MODAL ─────────────────── */
+  let _commentingRecordId   = null;
+  let _commentingRecordName = '';
+
+  function openCommentModal(id) {
+    if (!Security.requireAuth()) return;
+    if (!Security.can('canComment')) { showToast('Permission denied.', 'error'); return; }
+    const r = allRecords.find(r => r.id === id);
+    if (!r) { showToast('Record not found.', 'error'); return; }
+    _commentingRecordId   = id;
+    _commentingRecordName = `${r.familyName}, ${r.givenName} ${r.middleName || ''}`.trim();
+
+    const infoEl = document.getElementById('commentRecordInfo');
+    if (infoEl) infoEl.innerHTML =
+      `<strong>${Security.sanitize(_commentingRecordName)}</strong><br>` +
+      `DOB: ${fmtDate(r.dob)} &nbsp;·&nbsp; ${Security.sanitize(r.barangay || '—')} &nbsp;·&nbsp; Status: ${Security.sanitize(r.status || '—')}`;
+
+    const textEl = document.getElementById('commentText');
+    if (textEl) textEl.value = '';
+    const errEl = document.getElementById('commentError');
+    if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+
+    document.getElementById('commentOverlay')?.classList.add('open');
+    setTimeout(() => document.getElementById('commentText')?.focus(), 100);
+  }
+
+  function closeCommentModal() {
+    document.getElementById('commentOverlay')?.classList.remove('open');
+    _commentingRecordId   = null;
+    _commentingRecordName = '';
+  }
+
+  async function submitComment() {
+    if (!Security.requireAuth()) return;
+    const text  = (document.getElementById('commentText')?.value || '').trim();
+    const errEl = document.getElementById('commentError');
+
+    if (!text) {
+      if (errEl) { errEl.textContent = '⚠ Please describe the change needed.'; errEl.style.display = 'flex'; }
+      return;
+    }
+    if (text.length < 10) {
+      if (errEl) { errEl.textContent = '⚠ Please provide more detail (at least 10 characters).'; errEl.style.display = 'flex'; }
+      return;
+    }
+
+    const btn = document.getElementById('commentSubmitBtn');
+    if (btn) { btn.disabled = true; btn.querySelector('.btn-text').textContent = 'Submitting…'; }
+
+    try {
+      const session = Security.getSession();
+      await API.request('addComment', {
+        recordId:        _commentingRecordId,
+        recordName:      _commentingRecordName,
+        comment:         text,
+        submittedBy:     session?.username || 'unknown',
+        submittedByName: session?.name     || session?.username || 'unknown',
+      });
+      closeCommentModal();
+      showToast('✅ Change request submitted. The admin has been notified.', 'success');
+      Security.auditLog('COMMENT_SUBMITTED', { recordId: _commentingRecordId });
+    } catch (e) {
+      if (errEl) { errEl.textContent = `❌ Failed: ${e.message}`; errEl.style.display = 'flex'; }
+    } finally {
+      if (btn) { btn.disabled = false; btn.querySelector('.btn-text').textContent = '💬 Submit Request'; }
+    }
+  }
+
+  /* ── NOTIFICATIONS (admin only) ──────────────────────── */
+  let _notifVisible = false;
+
+  async function loadNotifications() {
+    if (!Security.can('canConfig')) return;
+    try {
+      const comments = await API.request('getComments', { status: 'pending' });
+      const count    = Array.isArray(comments) ? comments.length : 0;
+
+      // Update badge
+      const badge = document.getElementById('notifBadge');
+      if (badge) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = count > 0 ? 'flex' : 'none';
+      }
+
+      // Render list
+      const list = document.getElementById('notifList');
+      if (!list) return;
+
+      if (!count) {
+        list.innerHTML = '<div class="notif-empty">✅ No pending change requests.</div>';
+        return;
+      }
+
+      list.innerHTML = comments.map(c => `
+        <div class="notif-item" id="notif-${Security.sanitize(c.id)}">
+          <div>
+            <span class="notif-status-badge pending">Pending</span>
+            <div class="notif-record">📋 ${Security.sanitize(c.recordName || c.recordId)}</div>
+            <div class="notif-comment">${Security.sanitize(c.comment)}</div>
+            <div class="notif-meta">
+              👤 ${Security.sanitize(c.submittedByName || c.submittedBy)}
+              &nbsp;·&nbsp; 🕐 ${Security.sanitize((c.submittedAt || '').replace('T',' ').substring(0,16))}
+            </div>
+          </div>
+          <div class="notif-actions">
+            <button class="btn btn-outline btn-sm" title="Find this record in the table"
+              onclick="App.findRecord('${Security.sanitize(c.recordId)}')">🔍</button>
+            <button class="btn btn-success btn-sm" title="Mark as resolved"
+              onclick="App.resolveComment('${Security.sanitize(c.id)}')">✔</button>
+          </div>
+        </div>`).join('');
+
+    } catch (e) {
+      console.warn('Notifications load failed:', e.message);
+    }
+  }
+
+  function toggleNotifications() {
+    if (!Security.can('canConfig')) return;
+    _notifVisible = !_notifVisible;
+    const panel = document.getElementById('notifPanel');
+    if (!panel) return;
+    panel.style.display = _notifVisible ? 'block' : 'none';
+    if (_notifVisible) loadNotifications();
+  }
+
+  async function resolveComment(commentId) {
+    if (!Security.can('canConfig')) return;
+    try {
+      await API.request('markCommentRead', { commentId });
+      // Fade out and remove the item
+      const el = document.getElementById('notif-' + commentId);
+      if (el) { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }
+      // Decrement badge
+      const badge = document.getElementById('notifBadge');
+      if (badge) {
+        const cur = parseInt(badge.textContent) || 0;
+        const next = cur - 1;
+        badge.textContent = next;
+        badge.style.display = next > 0 ? 'flex' : 'none';
+      }
+      showToast('✅ Change request marked as resolved.', 'success');
+      Security.auditLog('COMMENT_RESOLVED', { commentId });
+    } catch (e) {
+      showToast(`❌ Failed: ${e.message}`, 'error');
+    }
+  }
+
+  function findRecord(recordId) {
+    // Clear filters, search by id, scroll table into view
+    const s = document.getElementById('searchBox');
+    const r = allRecords.find(rec => rec.id === recordId);
+    if (!r) { showToast('Record not found in current data. Try syncing first.', 'error'); return; }
+    if (s) {
+      s.value = r.familyName || r.givenName || '';
+      applyFilters();
+    }
+    document.getElementById('masterTable')?.scrollIntoView({ behavior: 'smooth' });
+    toggleNotifications();
+  }
+
   /* ── PUBLIC API ──────────────────────────────────────── */
   return {
     init,
@@ -925,6 +1096,13 @@ const App = (() => {
     switchTab,
     showAuditLog,
     showToast,
+    openCommentModal,
+    closeCommentModal,
+    submitComment,
+    loadNotifications,
+    toggleNotifications,
+    resolveComment,
+    findRecord,
   };
 
 })();
