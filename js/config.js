@@ -21,22 +21,18 @@ const AppConfig = (() => {
     coordinator: '', // Set by admin
   };
 
-  /* ── BARANGAYS OF RAGAY ───────────────────────────────── */
+  /* ── BARANGAYS ──────────────────────────────────────── */
   const BARANGAYS = [
-    'Agao-ao','Agrupacion','Alert','Bagong Sikat','Buenasuerte',
-    'Calao','Camambugan','Casay','Comagascas','Concepcion',
-    'Del Carmen','Del Rosario','District I (Pob.)','District II (Pob.)',
-    'District III (Pob.)','District IV (Pob.)','Esperanza','Gatbo',
-    'Inapatan','Judith','Kulasi','La Castellana','La Purisima',
-    'Lanipga-Naga','Liboro','Lubigan','Malitbog','Mambulo Nuevo',
-    'Mambulo Viejo','Manguiring','Mercedes','Patrocinio',
-    'Progreso','Ragay Nuevo','Salvacion','San Antonio','San Francisco',
-    'San Isidro','San Jose','San Juan','San Nicolas','San Pablo',
-    'San Pascual','San Ramon','San Roque','San Vicente','Santa Cruz',
-    'Santa Elena','Santa Lucia','Santo Domingo','Santo Niño',
-    'Talobatib','Trinidad','Union','Victory','Villa Aurora',
-    'Villa Bautista','Villa Concordia','Villa Estrella',
-  ].sort();
+    'AGAO-AO','AGRUPACION','AMOMOKPOK','APAD','APALE',
+    'BANGA CAVES','BAYA','BINAHAN PROPER','BINAHAN UPPER','BUENASUERTE',
+    'CABADISAN','CABINITAN','CABUGAO','CADITAAN','CALE',
+    'CATABANGAN PROPER','F. SIMEON','GODOFREDO REYES SR.','INANDAWA',
+    'LAGUIO','LANIPGA-CAWAYAN','LIBORO','LOHONG','LOWER OMON',
+    'LOWER STA. CRUZ','PANAYTAYAN','PANAYTAYAN NUEVO','PATALUNAN',
+    'POBLACION ILAOD','POBLACION IRAYA','PORT JUNCTION NORTE',
+    'PORT JUNCTION SUR','SALVACION','SAMAY','SAN RAFAEL',
+    'TAGBAC','UPPER OMON','UPPER STA. CRUZ',
+  ];  // already in correct alphabetical order
 
   /* ── VACCINE LIST (DOH EPI) ──────────────────────────── */
   const VACCINES = [
@@ -66,8 +62,9 @@ const AppConfig = (() => {
   const DESIGNATIONS = [
     'Municipal Health Officer (MHO)',
     'Public Health Nurse (PHN)',
+    'HRH (Nurse)',
+    'HRH (Midwife)',
     'Rural Health Midwife (RHM)',
-    'Barangay Health Worker (BHW)',
     'Medical Officer',
     'Sanitation Inspector',
     'Volunteer',
