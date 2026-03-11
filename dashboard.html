@@ -225,7 +225,7 @@
   <!-- ── TAB: SUMMARY ───────────────────────────── -->
   <div class="tab-content" id="tab-summary" role="tabpanel">
     <div class="summary-grid">
-      <div class="summary-card">
+      <div class="summary-card" style="grid-column:1/-1;">
         <div class="summary-card-header">📍 Coverage by Barangay</div>
         <div class="table-scroll">
           <table>
@@ -233,11 +233,29 @@
               <tr>
                 <th style="color:var(--navy);padding:6px 14px;font-size:11px;text-align:left;">Barangay</th>
                 <th style="color:var(--navy);padding:6px;font-size:11px;text-align:center;">Total</th>
-                <th style="color:var(--navy);padding:6px;font-size:11px;text-align:center;">Vacc</th>
+                <th style="color:var(--success);padding:6px;font-size:11px;text-align:center;">Vacc</th>
+                <th style="color:var(--danger);padding:6px;font-size:11px;text-align:center;">Refused</th>
+                <th style="color:var(--warn);padding:6px;font-size:11px;text-align:center;">Absent</th>
+                <th style="color:var(--muted);padding:6px;font-size:11px;text-align:center;">Deferred</th>
                 <th style="color:var(--navy);padding:6px 14px;font-size:11px;">Coverage</th>
               </tr>
             </thead>
             <tbody id="summaryBarangay"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-header">📊 Status Breakdown</div>
+        <div class="table-scroll">
+          <table>
+            <thead style="background:var(--light-bg);">
+              <tr>
+                <th style="color:var(--navy);padding:6px 14px;font-size:11px;text-align:left;">Status</th>
+                <th style="color:var(--navy);padding:6px;font-size:11px;text-align:center;">Count</th>
+                <th style="color:var(--navy);padding:6px 14px;font-size:11px;">Share</th>
+              </tr>
+            </thead>
+            <tbody id="summaryStatus"></tbody>
           </table>
         </div>
       </div>
