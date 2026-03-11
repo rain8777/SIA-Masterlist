@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <title>SIA Masterlist — Ragay RHU</title>
+  <!-- Minimal inline style for loading screen -->
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      background: linear-gradient(135deg, #002B5B, #004080, #0069B4);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      color: #fff; text-align: center;
+    }
+    .loader { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .loader-icon { font-size: 48px; animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.1);opacity:.8} }
+    .loader-text { font-size: 14px; opacity: .75; }
+    .loader-title { font-size: 17px; font-weight: 700; }
+  </style>
+</head>
+<body>
+<div class="loader">
+  <div class="loader-icon">💉</div>
+  <div>
+    <div class="loader-title">SIA Masterlist System</div>
+    <div class="loader-text">Ragay Rural Health Unit · DOH Philippines</div>
+  </div>
+  <div class="loader-text">Initializing secure session…</div>
+</div>
+<script src="js/security.js"></script>
+<script src="js/config.js"></script>
+<script>
+  'use strict';
+  AppConfig.init();
+  const session = Security.getSession();
+  if (session) {
+    window.location.replace('dashboard.html');
+  } else {
+    window.location.replace('login.html');
+  }
+</script>
+</body>
+</html>

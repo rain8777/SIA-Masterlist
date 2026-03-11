@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta name="referrer" content="no-referrer" />
+  <title>SIA Masterlist — Ragay RHU</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="assets/logo-ragay.png" type="image/png" />
+</head>
+<body>
+
+<!-- Skip link for accessibility -->
+<a class="skip-link" href="#masterTable">Skip to data table</a>
+
+<!-- ══════════ SECURITY NOTICE ══════════ -->
+<div class="security-notice" role="banner">
+  <strong>CONFIDENTIAL:</strong> This system contains personal health information protected under R.A. 10173 (Data Privacy Act of 2012). Authorized access only. All actions are logged.
+</div>
+
+<!-- ══════════ HEADER ══════════ -->
+<header id="appHeader" role="banner">
+  <div class="header-inner">
+    <div class="logo-wrap">
+      <div class="logo-circle" title="Department of Health Philippines">
+        <img src="assets/logo-doh.png" alt="DOH Seal" />
+      </div>
+      <div class="logo-circle logo-circle--ragay" title="Municipality of Ragay, Camarines Sur">
+        <img src="assets/logo-ragay.png" alt="Municipality of Ragay Official Seal" />
+      </div>
+      <div class="logo-circle logo-circle--bp" title="Bagong Pilipinas">
+        <img src="assets/logo-bagong-pilipinas.png" alt="Bagong Pilipinas" />
+      </div>
+    </div>
+    <div class="header-titles">
+      <h1>SUPPLEMENTAL IMMUNIZATION ACTIVITY (SIA) — MASTERLIST</h1>
+      <p>Children 6–59 Months Old &nbsp;·&nbsp; Ragay Rural Health Unit, Camarines Sur &nbsp;·&nbsp; <span id="campaignDisplay">SIA Campaign</span> &nbsp;·&nbsp; <span id="periodDisplay"></span></p>
+    </div>
+    <div class="header-meta" aria-hidden="false">
+      <div class="dept">Department of Health</div>
+      <div class="country">Republic of the Philippines</div>
+      <div><span class="memo-badge" id="memoDisplay">DOH-EPI MEMO</span></div>
+    </div>
+  </div>
+
+  <!-- Session bar -->
+  <div class="session-bar" role="complementary" aria-label="Session information">
+    <span>👤 <span class="s-user" id="sessionUser">Loading…</span></span>
+    <span class="s-role" id="sessionRole">—</span>
+    <span style="margin-left:auto;opacity:.7;font-size:10px;" id="sessionTime"></span>
+    <button class="btn-logout" onclick="App.logout()">🚪 Logout</button>
+  </div>
+
+  <!-- Stats bar -->
+  <nav class="stats-bar" aria-label="Summary statistics">
+    <div class="stats-inner">
+      <div class="stat-item" title="Total enrolled children">
+        <div class="stat-num" id="statTotal">0</div>
+        <div class="stat-lbl">Total Enrolled</div>
+      </div>
+      <div class="stat-item s-male" title="Male count">
+        <div class="stat-num" id="statMale">0</div>
+        <div class="stat-lbl">Male</div>
+      </div>
+      <div class="stat-item s-female" title="Female count">
+        <div class="stat-num" id="statFemale">0</div>
+        <div class="stat-lbl">Female</div>
+      </div>
+      <div class="stat-item s-vacc" title="Vaccinated count">
+        <div class="stat-num" id="statVacc">0</div>
+        <div class="stat-lbl">Vaccinated</div>
+      </div>
+      <div class="stat-item s-cover" title="Vaccination coverage %">
+        <div class="stat-num" id="statCoverage">0%</div>
+        <div class="stat-lbl">Coverage</div>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<!-- ══════════ MAIN ══════════ -->
+<main id="mainContent" role="main">
+
+  <!-- CONFIG PANEL -->
+  <div class="config-panel" id="configPanel" role="region" aria-label="Configuration">
+    <h3>⚙️ Google Sheets Data Source Configuration</h3>
+    <div class="config-grid">
+      <div class="form-field">
+        <label>Apps Script Web App URL</label>
+        <input type="url" id="cfgScriptUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" />
+        <div class="field-hint">Deploy your Apps Script as a Web App and paste the URL here.</div>
+      </div>
+      <div class="form-field">
+        <label>DOH Memo Reference</label>
+        <input type="text" id="cfgMemo" placeholder="e.g. DOH-EPI-2024-0158" maxlength="80" />
+      </div>
+      <div class="form-field">
+        <label>SIA Campaign Name</label>
+        <input type="text" id="cfgCampaign" placeholder="e.g. bOPV SIA 2025" maxlength="100" />
+      </div>
+      <div class="form-field">
+        <label>Campaign Period</label>
+        <input type="text" id="cfgPeriod" placeholder="e.g. April 1–30, 2025" maxlength="80" />
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-gold" onclick="App.saveConfig()">💾 Save</button>
+      <button class="btn btn-outline" onclick="App.testConnection()">🔌 Test Connection</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('configPanel').classList.remove('show')">✕ Close</button>
+      <span class="config-status" id="connStatus"></span>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar" role="toolbar" aria-label="Actions and filters">
+    <div class="toolbar-left">
+      <input type="text" class="search-input" id="searchBox"
+        placeholder="🔍  Search name, barangay, mother…"
+        aria-label="Search records"
+        maxlength="100"
+        autocomplete="off"
+        spellcheck="false" />
+      <select id="filterBarangay" aria-label="Filter by barangay">
+        <option value="">All Barangays</option>
+      </select>
+      <select id="filterGender" aria-label="Filter by gender">
+        <option value="">All Genders</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+      </select>
+      <select id="filterStatus" aria-label="Filter by vaccination status">
+        <option value="">All Statuses</option>
+        <option value="Vaccinated">Vaccinated</option>
+        <option value="Not Vaccinated">Not Vaccinated</option>
+        <option value="Refused">Refused</option>
+        <option value="Absent">Absent</option>
+      </select>
+      <select id="filterVaccine" aria-label="Filter by vaccine">
+        <option value="">All Vaccines</option>
+        <option value="bOPV">bOPV</option>
+        <option value="IPV">IPV</option>
+        <option value="MR">MR</option>
+        <option value="MMR">MMR</option>
+        <option value="PCV">PCV</option>
+        <option value="Rotavirus">Rotavirus</option>
+      </select>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn btn-primary" onclick="App.openModal()" data-permission="canAdd" aria-label="Add new child record">
+        ➕ Add Child
+      </button>
+      <button class="btn btn-success" onclick="App.loadFromSheets()" id="btnSync" aria-label="Sync from Google Sheets">
+        <span class="spinner" id="syncSpinner"></span>
+        <span class="btn-text">🔄 Sync Sheets</span>
+      </button>
+      <button class="btn btn-outline" onclick="App.exportCSV()" data-permission="canExport">⬇ CSV</button>
+      <button class="btn btn-outline" onclick="window.print()">🖨 Print</button>
+      <button class="btn btn-outline" onclick="App.openConfigPanel()" data-permission="canConfig">⚙️ Config</button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" role="tab" aria-selected="true"  onclick="App.switchTab('list',this)">📋 Masterlist</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" onclick="App.switchTab('summary',this)">📊 Summary</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" onclick="App.switchTab('audit',this)" data-permission="canConfig">🛡 Audit Log</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" onclick="App.switchTab('instructions',this)">📖 Setup Guide</button>
+  </div>
+
+  <!-- ── TAB: MASTERLIST ─────────────────────────── -->
+  <div class="tab-content active" id="tab-list" role="tabpanel">
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table id="masterTable" aria-label="SIA Masterlist" role="table">
+          <thead>
+            <tr>
+              <th rowspan="2" style="width:36px;">#</th>
+              <th colspan="3" class="group-header">CHILD'S NAME</th>
+              <th rowspan="2" onclick="sortBy('dob')" title="Sort by Date of Birth">DOB <span class="sort-icon">↕</span></th>
+              <th rowspan="2" onclick="sortBy('age')" title="Sort by Age">Age <span class="sort-icon">↕</span></th>
+              <th rowspan="2" onclick="sortBy('gender')">Sex <span class="sort-icon">↕</span></th>
+              <th colspan="2" class="group-header">ADDRESS</th>
+              <th colspan="3" class="group-header">MOTHER / GUARDIAN</th>
+              <th rowspan="2">Vaccine</th>
+              <th rowspan="2">Date Vacc.</th>
+              <th colspan="3" class="group-header">VACCINATOR</th>
+              <th rowspan="2" onclick="sortBy('status')">Status <span class="sort-icon">↕</span></th>
+              <th rowspan="2">Remarks</th>
+              <th rowspan="2">Action</th>
+            </tr>
+            <tr>
+              <th onclick="sortBy('familyName')" class="sorted">Family <span class="sort-icon">↕</span></th>
+              <th>Given</th>
+              <th>Middle</th>
+              <th>Purok/Sitio</th>
+              <th onclick="sortBy('barangay')">Barangay <span class="sort-icon">↕</span></th>
+              <th>Family</th><th>Given</th><th>Middle</th>
+              <th>Family</th><th>Given</th><th>Middle</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr>
+              <td colspan="20">
+                <div class="empty-state">
+                  <span class="empty-icon">💉</span>
+                  <p>No records yet. Add a child or sync from Google Sheets.</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" role="navigation" aria-label="Table pagination">
+        <div class="pagination-info" id="pageInfo">Showing 0–0 of 0 records</div>
+        <div class="page-btns" id="pageBtns"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: SUMMARY ───────────────────────────── -->
+  <div class="tab-content" id="tab-summary" role="tabpanel">
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-card-header">📍 Coverage by Barangay</div>
+        <div class="table-scroll">
+          <table>
+            <thead style="background:var(--light-bg);">
+              <tr>
+                <th style="color:var(--navy);padding:6px 14px;font-size:11px;text-align:left;">Barangay</th>
+                <th style="color:var(--navy);padding:6px;font-size:11px;text-align:center;">Total</th>
+                <th style="color:var(--navy);padding:6px;font-size:11px;text-align:center;">Vacc</th>
+                <th style="color:var(--navy);padding:6px 14px;font-size:11px;">Coverage</th>
+              </tr>
+            </thead>
+            <tbody id="summaryBarangay"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-header">💉 Vaccines Administered</div>
+        <div class="table-scroll">
+          <table>
+            <thead style="background:var(--light-bg);">
+              <tr>
+                <th style="color:var(--navy);padding:6px 14px;font-size:11px;text-align:left;">Vaccine</th>
+                <th style="color:var(--navy);padding:6px;font-size:11px;text-align:center;">Count</th>
+              </tr>
+            </thead>
+            <tbody id="summaryVaccines"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-header">📅 Age Group Distribution</div>
+        <div class="table-scroll">
+          <table>
+            <thead style="background:var(--light-bg);">
+              <tr>
+                <th style="color:var(--navy);padding:6px 14px;font-size:11px;text-align:left;">Age Group</th>
+                <th style="color:var(--navy);padding:6px;font-size:11px;text-align:center;">Count</th>
+              </tr>
+            </thead>
+            <tbody id="summaryAgeGroup"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: AUDIT LOG ─────────────────────────── -->
+  <div class="tab-content" id="tab-audit" role="tabpanel" data-permission="canConfig">
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table class="audit-table" aria-label="Audit Log">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Action</th>
+              <th>User</th>
+              <th>Role</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="auditTableBody">
+            <tr><td colspan="5"><div class="empty-state"><span class="empty-icon">📋</span><p>No audit logs yet.</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: INSTRUCTIONS ──────────────────────── -->
+  <div class="tab-content" id="tab-instructions" role="tabpanel">
+    <div class="table-wrap instructions-wrap" style="padding:24px;">
+      <h2 style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:18px;">📖 Setup & Integration Guide</h2>
+
+      <div class="inst-step blue">
+        <h3>Step 1 — Create Google Sheet</h3>
+        <p>Create a Google Sheet named <code>SIA_Masterlist</code> with these exact column headers in Row 1:</p>
+        <pre>id | familyName | givenName | middleName | dob | gender | purok | barangay
+motherFamily | motherGiven | motherMiddle | philhealth | contact | relationship
+vaccine | dateVacc | vaccSite | status | vaccinatorFamily | vaccinatorGiven
+vaccinatorMiddle | designation | remarks | dateEncoded | encodedBy</pre>
+        <p style="margin-top:8px;">Also create a second sheet named <code>Users</code> for user management (columns: id, username, passwordHash, role, name, active).</p>
+      </div>
+
+      <div class="inst-step gold">
+        <h3>Step 2 — Apps Script Backend</h3>
+        <p>Go to Extensions → Apps Script and paste the code from <code>appscript/Code.gs</code> (included in this package). Then deploy as:</p>
+        <p style="margin-top:6px;"><strong>Deploy → New Deployment → Web App → Execute as: Me → Who has access: Anyone</strong><br/>Copy the Web App URL and paste it in ⚙️ Config.</p>
+      </div>
+
+      <div class="inst-step green">
+        <h3>Step 3 — GitHub + Vercel Deployment</h3>
+        <p>Push all files to a GitHub repo. Connect to Vercel — it will auto-deploy on every push. The <code>vercel.json</code> configures all security headers (HSTS, CSP, X-Frame-Options, etc.).</p>
+      </div>
+
+      <div class="inst-step red">
+        <h3>Security Best Practices</h3>
+        <ul style="padding-left:18px;margin-top:4px;">
+          <li>Remove the demo credentials box in <code>login.html</code> before deploying to production</li>
+          <li>Enable Google Account authentication on the Apps Script for extra protection</li>
+          <li>Limit Apps Script sharing to specific Google accounts/domains</li>
+          <li>Enable 2-Factor Authentication on the Google account owning the Sheet</li>
+          <li>Regularly export and back up the Google Sheet</li>
+          <li>Change default passwords immediately after first login</li>
+          <li>Comply with DOH Data Privacy and RA 10173 requirements</li>
+        </ul>
+      </div>
+
+      <div class="inst-step blue">
+        <h3>Google Apps Script Backup (GAS Fallback)</h3>
+        <p>In your Apps Script project, add a new HTML file named <code>index</code> and paste the contents of <code>index.html</code>. Update your <code>doGet()</code> to serve it:</p>
+        <pre>function doGet(e) {
+  if (!e.parameter.action) {
+    return HtmlService.createHtmlOutputFromFile('index')
+      .setTitle('SIA Masterlist')
+      .setSandboxMode(HtmlService.SandboxMode.IFRAME);
+  }
+  // ... handle API actions below
+}</pre>
+      </div>
+    </div>
+  </div>
+
+</main><!-- end main -->
+
+<!-- ══════════ ADD/EDIT MODAL ══════════ -->
+<div class="overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">➕ Add Child Record</h2>
+      <button class="modal-close" onclick="App.closeModal()" aria-label="Close modal">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Hidden CSRF token -->
+      <input type="hidden" id="formCsrfToken" />
+
+      <!-- Datalist for barangays -->
+      <datalist id="barangayList"></datalist>
+
+      <!-- ① CHILD INFO ───────────────────────────── -->
+      <div class="form-section">
+        <div class="section-label">👶 Child's Information</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="f_familyName">Family Name *</label>
+            <input type="text" id="f_familyName" placeholder="DELA CRUZ" maxlength="60" style="text-transform:uppercase" autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label for="f_givenName">Given Name *</label>
+            <input type="text" id="f_givenName" placeholder="Juan" maxlength="60" autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label for="f_middleName">Middle Name</label>
+            <input type="text" id="f_middleName" placeholder="Santos" maxlength="60" autocomplete="off" />
+          </div>
+        </div>
+        <div class="form-grid cols-4" style="margin-top:10px;">
+          <div class="form-field span-2">
+            <label for="f_dob">Date of Birth * (YYYY-MM-DD)</label>
+            <input type="date" id="f_dob" required />
+            <div class="age-display" id="ageDisplay"></div>
+          </div>
+          <div class="form-field">
+            <label for="f_gender">Sex *</label>
+            <select id="f_gender" required>
+              <option value="">Select…</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="f_philhealth">PhilHealth No.</label>
+            <input type="text" id="f_philhealth" placeholder="Optional" maxlength="20" autocomplete="off" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ② ADDRESS ──────────────────────────────── -->
+      <div class="form-section">
+        <div class="section-label">🏘️ Address</div>
+        <div class="form-grid cols-2">
+          <div class="form-field">
+            <label for="f_purok">Purok / Sitio / Street *</label>
+            <input type="text" id="f_purok" placeholder="Purok 1 / Sitio Bagong Pag-asa" maxlength="80" autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label for="f_barangay">Barangay *</label>
+            <input type="text" id="f_barangay" placeholder="Type barangay name…" maxlength="80" list="barangayList" autocomplete="off" />
+            <div class="field-hint">Municipality: Ragay, Camarines Sur</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ MOTHER / GUARDIAN ─────────────────────── -->
+      <div class="form-section">
+        <div class="section-label">👩 Mother / Guardian Information</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="f_motherFamily">Family Name *</label>
+            <input type="text" id="f_motherFamily" placeholder="DELA CRUZ" maxlength="60" style="text-transform:uppercase" autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label for="f_motherGiven">Given Name *</label>
+            <input type="text" id="f_motherGiven" placeholder="Maria" maxlength="60" autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label for="f_motherMiddle">Middle Name</label>
+            <input type="text" id="f_motherMiddle" placeholder="Reyes" maxlength="60" autocomplete="off" />
+          </div>
+        </div>
+        <div class="form-grid cols-2" style="margin-top:10px;">
+          <div class="form-field">
+            <label for="f_contact">Contact No.</label>
+            <input type="text" id="f_contact" placeholder="09XX-XXX-XXXX" maxlength="20" autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label for="f_relationship">Relationship to Child</label>
+            <select id="f_relationship">
+              <option value="Mother">Mother</option>
+              <option value="Father">Father</option>
+              <option value="Guardian">Guardian</option>
+              <option value="Grandparent">Grandparent</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ④ VACCINATION ────────────────────────────── -->
+      <div class="form-section">
+        <div class="section-label">💉 Vaccination Information</div>
+        <div class="form-grid cols-4">
+          <div class="form-field span-2">
+            <label for="f_vaccine">Vaccine Given</label>
+            <select id="f_vaccine">
+              <option value="">Select vaccine…</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="f_dateVacc">Date of Vaccination</label>
+            <input type="date" id="f_dateVacc" />
+          </div>
+          <div class="form-field">
+            <label for="f_status">Status</label>
+            <select id="f_status">
+              <option value="Vaccinated">Vaccinated</option>
+              <option value="Not Vaccinated">Not Vaccinated</option>
+              <option value="Refused">Refused</option>
+              <option value="Absent">Absent</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid cols-2" style="margin-top:10px;">
+          <div class="form-field">
+            <label for="f_vaccSite">Vaccination Site</label>
+            <select id="f_vaccSite"></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑤ VACCINATOR ─────────────────────────────── -->
+      <div class="form-section">
+        <div class="section-label">🩺 Name of Vaccinator</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="f_vaccinatorFamily">Family Name</label>
+            <input type="text" id="f_vaccinatorFamily" placeholder="REYES" maxlength="60" style="text-transform:uppercase" autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label for="f_vaccinatorGiven">Given Name</label>
+            <input type="text" id="f_vaccinatorGiven" placeholder="Ana" maxlength="60" autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label for="f_vaccinatorMiddle">Middle Name</label>
+            <input type="text" id="f_vaccinatorMiddle" placeholder="Lim" maxlength="60" autocomplete="off" />
+          </div>
+        </div>
+        <div class="form-grid cols-2" style="margin-top:10px;">
+          <div class="form-field">
+            <label for="f_designation">Designation / Position</label>
+            <select id="f_designation"></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑥ AEFI / REMARKS ─────────────────────────── -->
+      <div class="form-section">
+        <div class="section-label">📝 AEFI &amp; Remarks</div>
+        <div class="form-field">
+          <label for="f_remarks">Adverse Events Following Immunization (AEFI) / Notes</label>
+          <input type="text" id="f_remarks"
+            placeholder="e.g. No AEFI noted · Fever 38°C post-vaccination · Refused – religious objection"
+            maxlength="500" autocomplete="off" />
+          <div class="field-hint">⚠ Report any serious AEFI immediately to the Municipal Health Officer and complete the AEFI report form (DOH-EPI-AEFI-001).</div>
+        </div>
+      </div>
+
+    </div><!-- end modal-body -->
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="App.closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="App.saveRecord()" id="saveBtn">
+        <span class="spinner" id="saveBtnSpinner"></span>
+        <span class="btn-text">💾 Save Record</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ AUDIT MODAL ══════════ -->
+<div class="overlay" id="auditModal" role="dialog" aria-modal="true" aria-label="Audit Log Detail">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-header">
+      <h2>🛡 Full Audit Log</h2>
+      <button class="modal-close" onclick="document.getElementById('auditModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0;">
+      <div class="table-scroll">
+        <table class="audit-table" style="width:100%;">
+          <thead><tr><th>Timestamp</th><th>Action</th><th>User</th><th>Role</th><th>Details</th></tr></thead>
+          <tbody id="auditTableBody2"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ TOAST ══════════ -->
+<div id="toast" role="alert" aria-live="polite"></div>
+
+<!-- ══════════ SCRIPTS (order matters) ══════════ -->
+<script src="js/security.js"></script>
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+'use strict';
+// Show session time
+function updateClock() {
+  const s = Security.getSession();
+  if (!s) return;
+  const remaining = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 60000));
+  const el = document.getElementById('sessionTime');
+  if (el) el.textContent = `Session expires in: ${remaining}m`;
+}
+setInterval(updateClock, 30000);
+updateClock();
+</script>
+</body>
+</html>

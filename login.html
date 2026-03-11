@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta name="description" content="Secure login – SIA Masterlist, Ragay RHU" />
+  <title>Login — SIA Masterlist | Ragay RHU</title>
+  <link rel="stylesheet" href="css/login.css" />
+  <link rel="icon" href="assets/logo-ragay.png" type="image/png" />
+</head>
+<body>
+
+<main class="login-container" role="main">
+
+  <!-- HEADER -->
+  <div class="login-header">
+    <div class="login-logos">
+      <div class="login-logo" title="Department of Health Philippines">
+        <img src="assets/logo-doh.png" alt="DOH Seal" />
+      </div>
+      <div class="login-logo login-logo--ragay" title="Municipality of Ragay">
+        <img src="assets/logo-ragay.png" alt="Municipality of Ragay" />
+      </div>
+      <div class="login-logo login-logo--bp" title="Bagong Pilipinas">
+        <img src="assets/logo-bagong-pilipinas.png" alt="Bagong Pilipinas" />
+      </div>
+    </div>
+    <div class="login-title">SIA MASTERLIST SYSTEM</div>
+    <div class="login-subtitle">Supplemental Immunization Activity — Children 6–59 Months</div>
+    <div class="login-facility">Ragay Rural Health Unit · Camarines Sur</div>
+  </div>
+
+  <!-- BODY -->
+  <div class="login-body">
+
+    <!-- Security Notice -->
+    <div class="login-notice" role="note">
+      <strong>🔒 Authorized Users Only.</strong> This system contains personal health information protected under
+      <strong>Republic Act 10173</strong> (Data Privacy Act) and DOH regulations.
+      All access is logged and monitored. Unauthorized access is a criminal offense.
+    </div>
+
+    <!-- Lockout message -->
+    <div class="lockout-msg" id="lockoutMsg" role="alert"></div>
+
+    <!-- Error message -->
+    <div class="login-error" id="loginError" role="alert">
+      <span id="loginErrorIcon">⚠</span>
+      <span id="loginErrorText"></span>
+    </div>
+
+    <!-- Login Form -->
+    <form id="loginForm" novalidate autocomplete="off" onsubmit="return false;">
+
+      <!-- CSRF hidden field -->
+      <input type="hidden" id="loginCsrf" name="_csrf" />
+
+      <div class="form-field">
+        <label for="username">Username</label>
+        <div class="input-wrap">
+          <span class="input-icon">👤</span>
+          <input
+            type="text" id="username" name="username"
+            autocomplete="username" spellcheck="false"
+            maxlength="50" required
+            placeholder="Enter your username"
+            aria-label="Username"
+            aria-required="true"
+          />
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="password">Password</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔑</span>
+          <input
+            type="password" id="password" name="password"
+            autocomplete="current-password"
+            maxlength="128" required
+            placeholder="Enter your password"
+            aria-label="Password"
+            aria-required="true"
+          />
+          <button type="button" class="toggle-pw" id="togglePw" title="Show/hide password" aria-label="Toggle password visibility">👁</button>
+        </div>
+      </div>
+
+      <button type="submit" class="login-submit" id="loginBtn" onclick="handleLogin()">
+        <span class="spinner" id="loginSpinner"></span>
+        <span id="loginBtnText">🔐 Sign In</span>
+      </button>
+    </form>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="login-footer">
+    <p>
+      <strong>Department of Health Philippines</strong><br />
+      Expanded Program on Immunization (EPI) · Ragay RHU, Camarines Sur<br />
+      Session auto-expires after 30 minutes of inactivity.
+    </p>
+    <div class="security-badges">
+      <span class="s-badge">🔒 HTTPS Enforced</span>
+      <span class="s-badge">🛡 CSRF Protected</span>
+      <span class="s-badge">📋 Access Logged</span>
+      <span class="s-badge">🚫 5 Attempts Max</span>
+    </div>
+  </div>
+
+</main>
+
+<!-- Scripts -->
+<script src="js/security.js"></script>
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+'use strict';
+
+// If already logged in, redirect to dashboard
+if (Security.getSession()) {
+  window.location.href = 'dashboard.html';
+}
+
+// Set CSRF token
+document.getElementById('loginCsrf').value = Security.generateCSRF();
+
+// Check for timeout/logout reason is now handled inside DOMContentLoaded below
+
+// Toggle password visibility
+document.getElementById('togglePw').addEventListener('click', () => {
+  const pw = document.getElementById('password');
+  pw.type = pw.type === 'password' ? 'text' : 'password';
+});
+
+// Enter key → submit
+document.getElementById('password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleLogin();
+});
+document.getElementById('username').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('password').focus();
+});
+
+async function handleLogin() {
+  const usernameEl = document.getElementById('username');
+  const passwordEl = document.getElementById('password');
+  const username   = usernameEl.value.trim().toLowerCase();
+  const password   = passwordEl.value;
+
+  clearError();
+
+  if (!username || !password) {
+    showError('Please enter both username and password.');
+    return;
+  }
+
+  // CSRF check
+  const csrfInput = document.getElementById('loginCsrf').value;
+  if (!Security.validateCSRF(csrfInput)) {
+    showError('Security token invalid. Please refresh the page.');
+    return;
+  }
+
+  // Rate limiting / lockout check
+  const lock = Security.isLockedOut(username);
+  if (lock.locked) {
+    showLockout(`Account temporarily locked. Try again in ${lock.remaining} minute(s).`);
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    // Hash the password
+    const passwordHash = await Security.sha256(password + 'RhuRagay2025Salt!');
+
+    // Check against demo users (in prod: call API.authenticateUser)
+    const cfg       = AppConfig.loadConfig();
+    const scriptUrl = cfg.scriptUrl;
+
+    let authenticatedUser = null;
+
+    // Try Apps Script authentication first if configured
+    if (scriptUrl) {
+      try {
+        window.API && window.API.setScriptUrl(scriptUrl);
+        const result = await API.authenticateUser(username, passwordHash);
+        if (result && result.user) authenticatedUser = result.user;
+      } catch (gasErr) {
+        console.warn('GAS auth failed, falling back to demo users:', gasErr.message);
+      }
+    }
+
+    // Fallback: demo users (remove in production and use only Apps Script)
+    if (!authenticatedUser) {
+      const demoPassHash = await Security.sha256(username + 'Rhu@2025!RhuRagay2025Salt!');
+      const found = Security.DEMO_USERS.find(u => u.username === username);
+      if (found && passwordHash === demoPassHash) {
+        authenticatedUser = found;
+      }
+    }
+
+    if (authenticatedUser) {
+      Security.clearRateLimit(username);
+      const session = Security.createSession(authenticatedUser);
+      Security.auditLog('LOGIN', { username, role: authenticatedUser.role, ip: 'client' });
+      window.location.href = 'dashboard.html';
+    } else {
+      const attempts = Security.recordFailedAttempt(username);
+      const remaining = Math.max(0, Security.MAX_LOGIN_TRIES - attempts.attempts);
+      if (attempts.attempts >= Security.MAX_LOGIN_TRIES) {
+        showLockout(`Too many failed attempts. Account locked for 15 minutes.`);
+      } else {
+        showError(`Invalid username or password. ${remaining} attempt(s) remaining.`);
+      }
+      passwordEl.value = '';
+      passwordEl.focus();
+      Security.auditLog('LOGIN_FAILED', { username, attempts: attempts.attempts });
+    }
+  } catch (e) {
+    showError(`Login error: ${e.message}`);
+    Security.auditLog('LOGIN_ERROR', { username, error: e.message });
+  } finally {
+    setLoading(false);
+  }
+}
+
+function setLoading(on) {
+  document.getElementById('loginSpinner').style.display = on ? 'block' : 'none';
+  document.getElementById('loginBtnText').textContent = on ? 'Signing in…' : '🔐 Sign In';
+  document.getElementById('loginBtn').disabled = on;
+}
+
+function showError(msg) {
+  const el = document.getElementById('loginError');
+  document.getElementById('loginErrorText').textContent = msg;
+  el.classList.add('show');
+}
+
+function clearError() {
+  document.getElementById('loginError').classList.remove('show');
+  document.getElementById('lockoutMsg').classList.remove('show');
+}
+
+function showLockout(msg) {
+  const el = document.getElementById('lockoutMsg');
+  el.textContent = '🔒 ' + msg;
+  el.classList.add('show');
+  document.getElementById('loginBtn').disabled = true;
+}
+
+// Focus username on load; also handle URL reason params after DOM is ready
+window.addEventListener('DOMContentLoaded', () => {
+  AppConfig.init();
+  // Re-check reason param now that showError is defined
+  const reason = Security.getSafeParam('reason');
+  if (reason === 'timeout') {
+    showError('⏱ Your session expired due to inactivity. Please log in again.');
+  } else if (reason === 'unauthorized') {
+    showError('🚫 Access denied. Please log in to continue.');
+  }
+  document.getElementById('username').focus();
+});
+</script>
+</body>
+</html>
