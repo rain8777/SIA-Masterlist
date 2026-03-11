@@ -150,6 +150,8 @@ body {
 .stat-item.s-male   .stat-num { color: #7EC8FF; }
 .stat-item.s-female .stat-num { color: #FFB3C6; }
 .stat-item.s-vacc   .stat-num { color: #86EFAC; }
+/* FIX #4: Style for the new Not Vaccinated stat counter */
+.stat-item.s-unvacc .stat-num { color: #FCA5A5; }
 .stat-item.s-cover  .stat-num { color: #FCD34D; }
 
 /* ── MAIN LAYOUT ────────────────────────────────────────── */
