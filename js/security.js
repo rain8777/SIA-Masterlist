@@ -28,20 +28,21 @@ const Security = (() => {
 
   /* ── ROLES ─────────────────────────────────────────── */
   // Permission matrix:
-  //   canAdd    — add new child records
-  //   canEdit   — edit existing records
-  //   canDelete — permanently delete records (Admin only)
-  //   canExport — download CSV
-  //   canConfig — access ⚙ Config panel and Audit Log
+  //   canAdd     — add new child records
+  //   canEdit    — edit existing records
+  //   canDelete  — permanently delete records (Admin only)
+  //   canExport  — download CSV (ALL roles)
+  //   canComment — submit a change-request comment on a record (all non-admin)
+  //   canConfig  — access ⚙ Config panel and Audit Log (Admin only)
   const ROLES = {
-    ADMIN:       { label: 'Administrator',   canAdd: true,  canEdit: true,  canDelete: true,  canExport: true,  canConfig: true  },
-    ENCODER:     { label: 'Encoder',         canAdd: true,  canEdit: true,  canDelete: false, canExport: true,  canConfig: false },
-    HRH_NURSE:   { label: 'HRH (Nurse)',     canAdd: true,  canEdit: true,  canDelete: false, canExport: true,  canConfig: false },
-    HRH_MIDWIFE: { label: 'HRH (Midwife)',   canAdd: true,  canEdit: true,  canDelete: false, canExport: true,  canConfig: false },
-    NURSE:       { label: 'Nurse',           canAdd: true,  canEdit: true,  canDelete: false, canExport: true,  canConfig: false },
-    MIDWIFE:     { label: 'Midwife',         canAdd: true,  canEdit: true,  canDelete: false, canExport: true,  canConfig: false },
-    GENERAL:     { label: 'General',         canAdd: true,  canEdit: false, canDelete: false, canExport: false, canConfig: false },
-    VIEWER:      { label: 'Reporter',        canAdd: false, canEdit: false, canDelete: false, canExport: true,  canConfig: false },
+    ADMIN:       { label: 'Administrator', canAdd: true,  canEdit: true,  canDelete: true,  canExport: true, canComment: false, canConfig: true  },
+    ENCODER:     { label: 'Encoder',       canAdd: true,  canEdit: true,  canDelete: false, canExport: true, canComment: true,  canConfig: false },
+    HRH_NURSE:   { label: 'HRH (Nurse)',   canAdd: true,  canEdit: true,  canDelete: false, canExport: true, canComment: true,  canConfig: false },
+    HRH_MIDWIFE: { label: 'HRH (Midwife)', canAdd: true,  canEdit: true,  canDelete: false, canExport: true, canComment: true,  canConfig: false },
+    NURSE:       { label: 'Nurse',         canAdd: true,  canEdit: true,  canDelete: false, canExport: true, canComment: true,  canConfig: false },
+    MIDWIFE:     { label: 'Midwife',       canAdd: true,  canEdit: true,  canDelete: false, canExport: true, canComment: true,  canConfig: false },
+    GENERAL:     { label: 'General',       canAdd: true,  canEdit: false, canDelete: false, canExport: true, canComment: true,  canConfig: false },
+    VIEWER:      { label: 'Reporter',      canAdd: false, canEdit: false, canDelete: false, canExport: true, canComment: true,  canConfig: false },
   };
 
   /* ── USERS (validated against Apps Script Users sheet in production) ── */
