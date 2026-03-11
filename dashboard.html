@@ -75,6 +75,11 @@
         <div class="stat-num" id="statVacc">0</div>
         <div class="stat-lbl">Vaccinated</div>
       </div>
+      <!-- FIX #4: Added missing Not Vaccinated counter (Not Vaccinated + Refused + Absent + Deferred) -->
+      <div class="stat-item s-unvacc" title="Not vaccinated (includes Refused, Absent, Deferred)">
+        <div class="stat-num" id="statNotVacc">0</div>
+        <div class="stat-lbl">Not Vaccinated</div>
+      </div>
       <div class="stat-item s-cover" title="Vaccination coverage %">
         <div class="stat-num" id="statCoverage">0%</div>
         <div class="stat-lbl">Coverage</div>
@@ -565,7 +570,10 @@ vaccinatorMiddle | designation | remarks | dateEncoded | encodedBy</pre>
       <div class="table-scroll">
         <table class="audit-table" style="width:100%;">
           <thead><tr><th>Timestamp</th><th>Action</th><th>User</th><th>Role</th><th>Details</th></tr></thead>
-          <tbody id="auditTableBody2"></tbody>
+          <!-- FIX #1: Was 'auditTableBody2' — showAuditLog() in app.js only wrote to
+               'auditTableBody' so this modal was always blank. Renamed to
+               'auditModalTableBody' and showAuditLog() now populates both. -->
+          <tbody id="auditModalTableBody"></tbody>
         </table>
       </div>
     </div>
