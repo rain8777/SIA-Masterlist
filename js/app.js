@@ -200,20 +200,25 @@ const App = (() => {
       const data = await API.getAll();
       if (!Array.isArray(data)) throw new Error('Invalid response from server');
 
+      // Declare valid at the top of try so it is always in scope
+      let valid = [];
+
       if (data.length === 0) {
-        // Sheet is genuinely empty
+        // Sheet is genuinely empty — clear everything
         allRecords = [];
         saveCache([]);
       } else {
-        // Filter: keep records that have at least a familyName or givenName.
-        // Also accept any record that has ANY non-empty non-id field, in case
-        // the header mapping produced different key names than expected.
-        const valid = data.filter(r => {
+        // Keep records that have at least familyName or givenName (the Code.gs
+        // HEADER_MAP normalises column headers, so these keys should always exist).
+        // Fallback: also accept any record with ANY non-empty non-metadata field
+        // in case an unmapped header slipped through.
+        valid = data.filter(r => {
           if (!r) return false;
-          if (String(r.familyName||'').trim() || String(r.givenName||'').trim()) return true;
-          // Fallback: accept if any key other than id/dateEncoded/encodedBy has a value
+          if (String(r.familyName || '').trim()) return true;
+          if (String(r.givenName  || '').trim()) return true;
+          // Fallback — accept if at least one substantive field has a value
           return Object.entries(r).some(([k, v]) =>
-            k !== 'id' && k !== 'dateEncoded' && k !== 'encodedBy' && String(v||'').trim()
+            k !== 'id' && k !== 'dateEncoded' && k !== 'encodedBy' && String(v || '').trim()
           );
         });
 
@@ -221,27 +226,33 @@ const App = (() => {
           allRecords = valid.map(sanitizeRecord);
           saveCache(allRecords);
         } else {
-          // Still 0 after both filters — log what keys came back to help diagnose
+          // All rows came back but every one was empty after mapping.
+          // Log the raw keys so the developer can see what the sheet returned.
           const sampleKeys = data[0] ? Object.keys(data[0]) : [];
-          console.error('Sync: got', data.length, 'rows but all filtered out. Sample keys:', sampleKeys);
-          showToast(`⚠️ Sync got ${data.length} rows but could not read them. Check browser console for details.`, 'error');
-          setBtnLoading('btnSync', false, '🔄 Sync Sheets');
+          console.error('Sync: received', data.length, 'rows but all were empty after mapping.');
+          console.error('Sample record keys from server:', sampleKeys);
+          console.error('Sample record values:', data[0]);
+          showToast(`⚠️ Sync got ${data.length} rows but all were empty. Open browser console (F12) and check the "Sample record keys" log to diagnose the sheet headers.`, 'error');
           return;
         }
       }
 
+      // Refresh UI
       populateBarangayFilter();
       applyFilters();
       updateStats();
       renderSummary();
-      const skipped = data.length - valid.length;
+
+      const loaded  = valid.length;
+      const skipped = data.length - loaded;
       const msg = skipped > 0
-        ? `✅ Synced! ${valid.length} records loaded. (${skipped} blank rows skipped)`
-        : `✅ Synced! ${valid.length} records loaded.`;
+        ? `✅ Synced! ${loaded} records loaded. (${skipped} blank rows skipped)`
+        : `✅ Synced! ${loaded} records loaded.`;
       showToast(msg, 'success');
-      Security.auditLog('SYNC_SUCCESS', { count: valid.length });
+      Security.auditLog('SYNC_SUCCESS', { count: loaded });
+
     } catch (e) {
-      // On any error, restore from cache so data is not lost
+      // On error restore from cache so existing data is not lost
       const cached = loadCache();
       if (cached && cached.length > 0 && allRecords.length === 0) {
         allRecords = cached;
