@@ -45,12 +45,26 @@ const App = (() => {
     Security.startInactivityMonitor();
     AppConfig.init();
 
+    // Reset state for this user login (important in GAS single-page mode)
+    allRecords   = [];
+    filteredRecs = [];
+    currentPage  = 1;
+
     renderHeader();
     populateFormDropdowns();
     applyRBACToUI();
     bindEvents();
 
-    // Restore cached records first so data survives a page refresh
+    // Show session user info
+    const s = Security.getSession();
+    if (s) {
+      const role = Security.ROLES[s.role]?.label || s.role;
+      const connected = AppConfig.get('scriptUrl') ? '🟢 Connected' : '🔴 No Sheet';
+      document.getElementById('sessionUser').textContent = s.name + ' (' + connected + ')';
+      document.getElementById('sessionRole').textContent = role;
+    }
+
+    // Try to restore cached records for THIS user
     const cached = loadCache();
     if (cached && cached.length > 0) {
       allRecords = cached;
@@ -58,23 +72,19 @@ const App = (() => {
       applyFilters();
       updateStats();
       renderSummary();
-      showToast(`📋 ${cached.length} records restored from session cache.`, '');
+      showToast('📋 ' + cached.length + ' records loaded from cache.', '');
     } else {
       applyFilters();
       updateStats();
     }
 
-    // Show session user info
-    const s = Security.getSession();
-    if (s) {
-      document.getElementById('sessionUser').textContent = `${s.name} (${AppConfig.get('scriptUrl') ? '🟢 Connected' : '🔴 No Sheet'})`;
-      document.getElementById('sessionRole').textContent = Security.ROLES[s.role]?.label || s.role;
-    }
-
-    // Auto-sync from Google Sheets if URL is configured and no cache exists
-    if (AppConfig.get('scriptUrl') && (!cached || cached.length === 0)) {
+    // Always try to sync if sheet URL is configured
+    if (AppConfig.get('scriptUrl')) {
       loadFromSheets();
     }
+
+    // Start the login duration clock
+    startLoginClock();
 
     Security.auditLog('PAGE_LOAD', { page: 'dashboard' });
   }
@@ -91,11 +101,22 @@ const App = (() => {
 
   /* ── RBAC UI ─────────────────────────────────────────── */
   function applyRBACToUI() {
+    const isAdmin = Security.getSession()?.role === 'ADMIN';
     document.querySelectorAll('[data-permission]').forEach(el => {
       const perm = el.dataset.permission;
       if (!Security.can(perm)) {
         el.style.display = 'none';
         el.setAttribute('aria-hidden', 'true');
+      }
+    });
+    // Admin-only elements (config, audit, setup guide)
+    document.querySelectorAll('[data-admin-only]').forEach(el => {
+      if (!isAdmin) {
+        el.style.display = 'none';
+        el.setAttribute('aria-hidden', 'true');
+      } else {
+        el.style.display = '';
+        el.removeAttribute('aria-hidden');
       }
     });
   }
@@ -629,7 +650,9 @@ const App = (() => {
 
   /* ── LOGOUT ──────────────────────────────────────────── */
   function logout() {
-    clearCache();  // clear record cache on logout for privacy
+    // Don't clear the shared record cache — other users need it
+    // Only clear this user's session
+    if (_loginClockTimer) clearInterval(_loginClockTimer);
     Security.destroySession('USER_LOGOUT');
     window.location.href = 'login.html';
   }
@@ -643,6 +666,30 @@ const App = (() => {
     if (name === 'summary') renderSummary();
     if (name === 'audit')   showAuditLog();
     Security.auditLog('TAB_SWITCH', { tab: name });
+  }
+
+  /* ── LOGIN CLOCK ────────────────────────────────────── */
+  let _loginClockTimer = null;
+  function startLoginClock() {
+    if (_loginClockTimer) clearInterval(_loginClockTimer);
+    const s = Security.getSession();
+    if (!s) return;
+    const loginTime = s.issuedAt;
+    function update() {
+      const elapsed = Math.floor((Date.now() - loginTime) / 1000);
+      const h = Math.floor(elapsed / 3600);
+      const m = Math.floor((elapsed % 3600) / 60);
+      const sec = elapsed % 60;
+      const txt = h > 0
+        ? h + 'h ' + String(m).padStart(2,'0') + 'm ' + String(sec).padStart(2,'0') + 's'
+        : m > 0
+          ? m + 'm ' + String(sec).padStart(2,'0') + 's'
+          : sec + 's';
+      const el = document.getElementById('sessionTime');
+      if (el) el.textContent = 'Logged in: ' + txt;
+    }
+    update();
+    _loginClockTimer = setInterval(update, 1000);
   }
 
   /* ── HELPERS ─────────────────────────────────────────── */
