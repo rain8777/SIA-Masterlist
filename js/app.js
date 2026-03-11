@@ -193,11 +193,28 @@ const App = (() => {
 
     try {
       const data = await API.getAll();
-      if (!Array.isArray(data)) throw new Error('Invalid response');
+      if (!Array.isArray(data)) throw new Error('Invalid response from server');
+
       // Filter out blank/incomplete records — require at minimum a familyName or givenName
       const valid = data.filter(r => r && (String(r.familyName||'').trim() || String(r.givenName||'').trim()));
-      allRecords = valid.map(sanitizeRecord);
-      saveCache(allRecords);
+
+      // SAFETY: only replace allRecords if the server actually returned records.
+      // If valid.length === 0 but we already have data cached, it means something went
+      // wrong (empty sheet, wrong headers, etc.) — keep the existing data so it isn't lost.
+      if (valid.length > 0) {
+        allRecords = valid.map(sanitizeRecord);
+        saveCache(allRecords);
+      } else if (data.length === 0) {
+        // Sheet is genuinely empty — clear records
+        allRecords = [];
+        saveCache([]);
+      } else {
+        // Got rows but all were blank — suspicious, keep existing records
+        showToast(`⚠️ Sync returned ${data.length} rows but all were blank. Existing data kept.`, 'error');
+        setBtnLoading('btnSync', false, '🔄 Sync Sheets');
+        return;
+      }
+
       populateBarangayFilter();
       applyFilters();
       updateStats();
@@ -207,8 +224,17 @@ const App = (() => {
         ? `✅ Synced! ${valid.length} records loaded. (${skipped} blank rows skipped)`
         : `✅ Synced! ${valid.length} records loaded.`;
       showToast(msg, 'success');
-      Security.auditLog('SYNC_SUCCESS', { count: data.length });
+      Security.auditLog('SYNC_SUCCESS', { count: valid.length });
     } catch (e) {
+      // On any error, restore from cache so data is not lost
+      const cached = loadCache();
+      if (cached && cached.length > 0 && allRecords.length === 0) {
+        allRecords = cached;
+        populateBarangayFilter();
+        applyFilters();
+        updateStats();
+        renderSummary();
+      }
       showToast(`❌ Sync failed: ${e.message}`, 'error');
       Security.auditLog('SYNC_ERROR', { error: e.message });
     } finally {
@@ -245,7 +271,14 @@ const App = (() => {
 
     filteredRecs.sort((a, b) => {
       let va = a[sortField] || '', vb = b[sortField] || '';
-      if (sortField === 'dob' || sortField === 'dateVacc') { va = new Date(va); vb = new Date(vb); }
+      if (sortField === 'dob' || sortField === 'dateVacc') {
+        // Handle MM/DD/YYYY format for sorting
+        const parseSortDate = (s) => {
+          const m = String(s||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+          return m ? new Date(m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0')) : new Date(s||'');
+        };
+        va = parseSortDate(va); vb = parseSortDate(vb);
+      }
       else { va = String(va).toLowerCase(); vb = String(vb).toLowerCase(); }
       if (va < vb) return sortDir === 'asc' ? -1 : 1;
       if (va > vb) return sortDir === 'asc' ?  1 : -1;
@@ -739,7 +772,11 @@ const App = (() => {
   /* ── HELPERS ─────────────────────────────────────────── */
   function calcAgeMonths(dob) {
     if (!dob) return null;
-    const d   = new Date(dob);
+    // Normalize MM/DD/YYYY to a parseable format
+    let dobStr = String(dob).trim();
+    const mdY = dobStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mdY) dobStr = mdY[3] + '-' + mdY[1].padStart(2,'0') + '-' + mdY[2].padStart(2,'0');
+    const d   = new Date(dobStr);
     const now = new Date();
     let m = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
     if (now.getDate() < d.getDate()) m--;
@@ -748,16 +785,19 @@ const App = (() => {
 
   function fmtDate(d) {
     if (!d) return '—';
-    // Handle YYYY-MM-DD strings directly to avoid timezone shift
-    const iso = String(d).trim();
-    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) return m[2] + '/' + m[3] + '/' + m[1];
-    const dt = new Date(d);
-    if (isNaN(dt)) return d;
+    const s = String(d).trim();
+    if (!s || s === '—') return '—';
+    // Already MM/DD/YYYY — pass through
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
+    // YYYY-MM-DD (from <input type="date">) — convert without timezone shift
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return iso[2] + '/' + iso[3] + '/' + iso[1];
+    // Fallback: parse as date
+    const dt = new Date(s);
+    if (isNaN(dt)) return s;
     const mm = String(dt.getMonth() + 1).padStart(2, '0');
     const dd = String(dt.getDate()).padStart(2, '0');
-    const yy = dt.getFullYear();
-    return mm + '/' + dd + '/' + yy;
+    return mm + '/' + dd + '/' + dt.getFullYear();
   }
 
   function getVal(id) {
