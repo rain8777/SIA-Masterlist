@@ -47,19 +47,30 @@ const Security = (() => {
   /* ── USERS (validated against Apps Script Users sheet in production) ── */
   /* Passwords stored as SHA-256 hex hashes. NEVER store plaintext.       */
   /* Default password format: username + "Rhu@2025!" (change immediately) */
+  // FIX #3: The README documented usernames 'admin', 'encoder1', 'bhw1', 'viewer'
+  // but the actual DEMO_USERS array used different names ('administrator', 'encoder', etc.)
+  // causing logins to silently fail when no Google Sheet is configured.
+  // Aligned usernames to match the README, and kept the full-name variants as well
+  // so existing deployments using either set continue to work.
+  // Default password for each = username + "Rhu@2025!"
+  //   e.g. 'admin'         → type "adminRhu@2025!"
+  //        'administrator'  → type "administratorRhu@2025!"
   const DEMO_USERS = [
-    { id: 'u001', username: 'administrator', passwordHash: null, role: 'ADMIN',       name: 'System Administrator', mustChangePassword: false },
-    { id: 'u002', username: 'encoder',       passwordHash: null, role: 'ENCODER',     name: 'RHU Encoder',          mustChangePassword: false },
-    { id: 'u003', username: 'hrhnurse',      passwordHash: null, role: 'HRH_NURSE',   name: 'HRH Nurse',            mustChangePassword: false },
-    { id: 'u004', username: 'hrhmidwife',    passwordHash: null, role: 'HRH_MIDWIFE', name: 'HRH Midwife',          mustChangePassword: false },
-    { id: 'u005', username: 'nurse',         passwordHash: null, role: 'NURSE',       name: 'Nurse',                mustChangePassword: false },
-    { id: 'u006', username: 'midwife',       passwordHash: null, role: 'MIDWIFE',     name: 'Midwife',              mustChangePassword: false },
-    { id: 'u007', username: 'general',       passwordHash: null, role: 'GENERAL',     name: 'General Staff',        mustChangePassword: false },
-    { id: 'u008', username: 'reporter',      passwordHash: null, role: 'VIEWER',      name: 'Reporter / Viewer',    mustChangePassword: false },
+    // Primary usernames (matching README documentation)
+    { id: 'u001', username: 'admin',         passwordHash: null, role: 'ADMIN',       name: 'System Administrator', mustChangePassword: false },
+    { id: 'u002', username: 'encoder1',      passwordHash: null, role: 'ENCODER',     name: 'RHU Encoder',          mustChangePassword: false },
+    { id: 'u003', username: 'bhw1',          passwordHash: null, role: 'GENERAL',     name: 'BHW / Vaccinator',     mustChangePassword: false },
+    { id: 'u004', username: 'viewer',        passwordHash: null, role: 'VIEWER',      name: 'Reporter / Viewer',    mustChangePassword: false },
+    // Extended aliases (long-form names for flexibility)
+    { id: 'u005', username: 'administrator', passwordHash: null, role: 'ADMIN',       name: 'System Administrator', mustChangePassword: false },
+    { id: 'u006', username: 'encoder',       passwordHash: null, role: 'ENCODER',     name: 'RHU Encoder',          mustChangePassword: false },
+    { id: 'u007', username: 'hrhnurse',      passwordHash: null, role: 'HRH_NURSE',   name: 'HRH Nurse',            mustChangePassword: false },
+    { id: 'u008', username: 'hrhmidwife',    passwordHash: null, role: 'HRH_MIDWIFE', name: 'HRH Midwife',          mustChangePassword: false },
+    { id: 'u009', username: 'nurse',         passwordHash: null, role: 'NURSE',       name: 'Nurse',                mustChangePassword: false },
+    { id: 'u010', username: 'midwife',       passwordHash: null, role: 'MIDWIFE',     name: 'Midwife',              mustChangePassword: false },
+    { id: 'u011', username: 'general',       passwordHash: null, role: 'GENERAL',     name: 'General Staff',        mustChangePassword: false },
+    { id: 'u012', username: 'reporter',      passwordHash: null, role: 'VIEWER',      name: 'Reporter / Viewer',    mustChangePassword: false },
   ];
-  // Password for each account = username + "Rhu@2025!"
-  // e.g. administrator → "administratorRhu@2025!"
-  //      hrhnurse      → "hrhnurseRhu@2025!"
 
   /* ── CSRF ──────────────────────────────────────────── */
   function generateCSRF() {
