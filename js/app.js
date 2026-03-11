@@ -15,12 +15,17 @@ const App = (() => {
   let sortField    = 'familyName';
   let sortDir      = 'asc';
   const PAGE_SIZE  = 25;
-  const CACHE_KEY  = 'sia_records_cache';  // localStorage key — persists across refresh
+  const CACHE_KEY  = 'sia_records_cache';  // sessionStorage key — cleared on tab/session close
 
   /* ── CACHE HELPERS ───────────────────────────────────── */
+  // FIX #2: Use sessionStorage instead of localStorage.
+  // Patient health records (names, DOB, addresses, PhilHealth, vaccination status)
+  // must NOT persist across browser sessions. sessionStorage is automatically wiped
+  // when the tab or browser is closed, and is not shared across tabs.
+  // This complies with RA 10173 (Data Privacy Act) and the policy in security.js.
   function saveCache(records) {
     try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(records));
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(records));
     } catch (e) {
       console.warn('Cache save failed:', e.message);
     }
@@ -28,7 +33,7 @@ const App = (() => {
 
   function loadCache() {
     try {
-      const raw = localStorage.getItem(CACHE_KEY);
+      const raw = sessionStorage.getItem(CACHE_KEY);
       if (!raw) return null;
       const records = JSON.parse(raw);
       return Array.isArray(records) ? records : null;
@@ -36,7 +41,7 @@ const App = (() => {
   }
 
   function clearCache() {
-    localStorage.removeItem(CACHE_KEY);
+    sessionStorage.removeItem(CACHE_KEY);
   }
 
   /* ── INIT ────────────────────────────────────────────── */
@@ -270,7 +275,17 @@ const App = (() => {
     });
 
     filteredRecs.sort((a, b) => {
-      let va = a[sortField] || '', vb = b[sortField] || '';
+      let va, vb;
+      // FIX #6: 'age' is computed from dob — there is no 'age' field on records.
+      // Sort by calculated months so the Age column header actually works.
+      if (sortField === 'age') {
+        va = calcAgeMonths(a.dob) ?? 999;
+        vb = calcAgeMonths(b.dob) ?? 999;
+        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return sortDir === 'asc' ?  1 : -1;
+        return 0;
+      }
+      va = a[sortField] || ''; vb = b[sortField] || '';
       if (sortField === 'dob' || sortField === 'dateVacc') {
         // Handle MM/DD/YYYY format for sorting
         const parseSortDate = (s) => {
@@ -384,15 +399,18 @@ const App = (() => {
 
   /* ── STATS ───────────────────────────────────────────── */
   function updateStats() {
-    const total  = allRecords.length;
-    const males  = allRecords.filter(r => r.gender === 'Male').length;
-    const femals = allRecords.filter(r => r.gender === 'Female').length;
-    const vacc   = allRecords.filter(r => r.status === 'Vaccinated').length;
-    const pct    = total ? Math.round(vacc / total * 100) : 0;
+    const total   = allRecords.length;
+    const males   = allRecords.filter(r => r.gender === 'Male').length;
+    const femals  = allRecords.filter(r => r.gender === 'Female').length;
+    const vacc    = allRecords.filter(r => r.status === 'Vaccinated').length;
+    // FIX #4: Count all non-vaccinated (Not Vaccinated + Refused + Absent + Deferred)
+    const notVacc = allRecords.filter(r => r.status && r.status !== 'Vaccinated').length;
+    const pct     = total ? Math.round(vacc / total * 100) : 0;
     setText('statTotal',    total);
     setText('statMale',     males);
     setText('statFemale',   femals);
     setText('statVacc',     vacc);
+    setText('statNotVacc',  notVacc);
     setText('statCoverage', pct + '%');
   }
 
@@ -557,6 +575,10 @@ const App = (() => {
 
     setBtnLoading('saveBtn', true, 'Saving…');
 
+    // FIX #5: Track whether we've already pushed locally so the catch block
+    // doesn't push a second copy if the API call partially executed before throwing.
+    let pushedLocally = false;
+
     try {
       if (editingId) {
         await API.updateRecord(data);
@@ -568,6 +590,7 @@ const App = (() => {
         const result = await API.addRecord(data);
         if (result?.id) data.id = result.id;
         allRecords.push(data);
+        pushedLocally = true;
         saveCache(allRecords);  // update cache
         Security.auditLog('RECORD_ADDED', { id: data.id, name: data.familyName });
       }
@@ -578,8 +601,8 @@ const App = (() => {
       closeModal();
       showToast(editingId ? '✅ Record updated!' : '✅ Record added!', 'success');
     } catch (e) {
-      // Save locally even if sheet fails
-      if (!editingId) allRecords.push(data);
+      // Save locally even if sheet fails — but only if not already pushed above
+      if (!editingId && !pushedLocally) allRecords.push(data);
       applyFilters(); updateStats();
       showToast(`⚠ Saved locally. Sheet sync failed: ${e.message}`, 'error');
       Security.auditLog('RECORD_SAVE_ERROR', { error: e.message });
@@ -713,15 +736,20 @@ const App = (() => {
   function showAuditLog() {
     if (!Security.can('canConfig')) { showToast('Admin access required.', 'error'); return; }
     const logs  = Security.getAuditLogs();
-    const tbody = document.getElementById('auditTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = logs.map(l => `<tr>
+    const html  = logs.map(l => `<tr>
       <td class="td-dob">${Security.sanitize(l.timestamp.replace('T',' ').substring(0,19))}</td>
       <td><strong>${Security.sanitize(l.action)}</strong></td>
       <td>${Security.sanitize(l.username)}</td>
       <td>${Security.sanitize(l.role)}</td>
       <td>${Security.sanitize(JSON.stringify(l.details))}</td>
     </tr>`).join('') || '<tr><td colspan="5" class="empty-state">No audit logs yet.</td></tr>';
+
+    // FIX #1: Populate both the inline tab table AND the modal table so neither is ever blank.
+    const tbody      = document.getElementById('auditTableBody');
+    const modalTbody = document.getElementById('auditModalTableBody');
+    if (tbody)      tbody.innerHTML      = html;
+    if (modalTbody) modalTbody.innerHTML = html;
+
     document.getElementById('auditModal')?.classList.add('open');
   }
 
