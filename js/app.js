@@ -15,12 +15,12 @@ const App = (() => {
   let sortField    = 'familyName';
   let sortDir      = 'asc';
   const PAGE_SIZE  = 25;
-  const CACHE_KEY  = 'sia_records_cache';  // sessionStorage key for record cache
+  const CACHE_KEY  = 'sia_records_cache';  // localStorage key — persists across refresh
 
   /* ── CACHE HELPERS ───────────────────────────────────── */
   function saveCache(records) {
     try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify(records));
+      localStorage.setItem(CACHE_KEY, JSON.stringify(records));
     } catch (e) {
       console.warn('Cache save failed:', e.message);
     }
@@ -28,7 +28,7 @@ const App = (() => {
 
   function loadCache() {
     try {
-      const raw = sessionStorage.getItem(CACHE_KEY);
+      const raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return null;
       const records = JSON.parse(raw);
       return Array.isArray(records) ? records : null;
@@ -36,7 +36,7 @@ const App = (() => {
   }
 
   function clearCache() {
-    sessionStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(CACHE_KEY);
   }
 
   /* ── INIT ────────────────────────────────────────────── */
@@ -366,11 +366,14 @@ const App = (() => {
     const bMap = {};
     allRecords.forEach(r => {
       const b = r.barangay || '(Unknown)';
-      if (!bMap[b]) bMap[b] = { total: 0, vacc: 0, male: 0, female: 0 };
+      if (!bMap[b]) bMap[b] = { total: 0, vacc: 0, refused: 0, absent: 0, deferred: 0, male: 0, female: 0 };
       bMap[b].total++;
-      if (r.status === 'Vaccinated') bMap[b].vacc++;
-      if (r.gender === 'Male')   bMap[b].male++;
-      if (r.gender === 'Female') bMap[b].female++;
+      if (r.status === 'Vaccinated')    bMap[b].vacc++;
+      if (r.status === 'Refused')       bMap[b].refused++;
+      if (r.status === 'Absent')        bMap[b].absent++;
+      if (r.status === 'Deferred')      bMap[b].deferred++;
+      if (r.gender === 'Male')          bMap[b].male++;
+      if (r.gender === 'Female')        bMap[b].female++;
     });
 
     const bEl = document.getElementById('summaryBarangay');
@@ -379,19 +382,27 @@ const App = (() => {
       .map(([b, d]) => {
         const pct = d.total ? Math.round(d.vacc/d.total*100) : 0;
         const bar = `<div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>`;
-        return `<tr><td>${Security.sanitize(b)}</td><td>${d.total}</td><td>${d.vacc}</td><td>${bar} ${pct}%</td></tr>`;
-      }).join('') || noData(4);
+        return `<tr>
+          <td>${Security.sanitize(b)}</td>
+          <td style="text-align:center;">${d.total}</td>
+          <td style="text-align:center;color:var(--success);font-weight:600;">${d.vacc}</td>
+          <td style="text-align:center;color:var(--danger);">${d.refused}</td>
+          <td style="text-align:center;color:var(--warn);">${d.absent}</td>
+          <td style="text-align:center;color:var(--muted);">${d.deferred}</td>
+          <td>${bar} ${pct}%</td>
+        </tr>`;
+      }).join('') || noData(7);
 
     const vMap = {};
     allRecords.filter(r => r.vaccine).forEach(r => { vMap[r.vaccine] = (vMap[r.vaccine]||0)+1; });
     const vEl = document.getElementById('summaryVaccines');
     if (vEl) vEl.innerHTML = Object.entries(vMap).sort((a,b) => b[1]-a[1])
-      .map(([v,c]) => `<tr><td><strong>${Security.sanitize(v)}</strong></td><td>${c}</td></tr>`).join('') || noData(2);
+      .map(([v,c]) => `<tr><td><strong>${Security.sanitize(v)}</strong></td><td style="text-align:center;">${c}</td></tr>`).join('') || noData(2);
 
     const groups = { '6–11 mo':0,'12–23 mo':0,'24–35 mo':0,'36–47 mo':0,'48–59 mo':0 };
     allRecords.forEach(r => {
       const m = calcAgeMonths(r.dob);
-      if (m>=6&&m<=11) groups['6–11 mo']++;
+      if (m>=6&&m<=11)  groups['6–11 mo']++;
       else if(m>=12&&m<=23) groups['12–23 mo']++;
       else if(m>=24&&m<=35) groups['24–35 mo']++;
       else if(m>=36&&m<=47) groups['36–47 mo']++;
@@ -399,7 +410,31 @@ const App = (() => {
     });
     const aEl = document.getElementById('summaryAgeGroup');
     if (aEl) aEl.innerHTML = Object.entries(groups)
-      .map(([g,c]) => `<tr><td>${g}</td><td>${c}</td></tr>`).join('');
+      .map(([g,c]) => `<tr><td>${g}</td><td style="text-align:center;">${c}</td></tr>`).join('');
+
+    // Status breakdown
+    const total    = allRecords.length;
+    const vacc     = allRecords.filter(r => r.status === 'Vaccinated').length;
+    const refused  = allRecords.filter(r => r.status === 'Refused').length;
+    const absent   = allRecords.filter(r => r.status === 'Absent').length;
+    const deferred = allRecords.filter(r => r.status === 'Deferred').length;
+    const notVacc  = allRecords.filter(r => r.status === 'Not Vaccinated').length;
+    const sEl = document.getElementById('summaryStatus');
+    if (sEl) sEl.innerHTML = [
+      ['Vaccinated',    vacc,     'var(--success)', '#DCFCE7'],
+      ['Not Vaccinated',notVacc,  'var(--danger)',  '#FEE2E2'],
+      ['Refused',       refused,  'var(--danger)',  '#FEE2E2'],
+      ['Absent',        absent,   'var(--warn)',    '#FEF9C3'],
+      ['Deferred',      deferred, 'var(--muted)',   '#F0F4F8'],
+    ].map(([label, count, color, bg]) => {
+      const pct = total ? Math.round(count/total*100) : 0;
+      const bar = `<div class="prog-bar" style="width:80px;"><div class="prog-fill" style="width:${pct}%;background:${color};"></div></div>`;
+      return `<tr>
+        <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};margin-right:6px;"></span>${label}</td>
+        <td style="text-align:center;font-weight:700;color:${color};">${count}</td>
+        <td>${bar} <span style="font-size:11px;color:var(--muted);">${pct}%</span></td>
+      </tr>`;
+    }).join('');
   }
 
   /* ── MODAL ───────────────────────────────────────────── */
@@ -481,7 +516,7 @@ const App = (() => {
       designation:      getVal('f_designation'),
       vaccSite:         getVal('f_vaccSite'),
       remarks:          getVal('f_remarks'),
-      dateEncoded:      new Date().toLocaleDateString('en-PH'),
+      dateEncoded:      fmtDate(new Date().toISOString().split('T')[0]),
       encodedBy:        Security.getSession()?.username || '',
     };
 
@@ -711,9 +746,16 @@ const App = (() => {
 
   function fmtDate(d) {
     if (!d) return '—';
+    // Handle YYYY-MM-DD strings directly to avoid timezone shift
+    const iso = String(d).trim();
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return m[2] + '/' + m[3] + '/' + m[1];
     const dt = new Date(d);
     if (isNaN(dt)) return d;
-    return dt.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const yy = dt.getFullYear();
+    return mm + '/' + dd + '/' + yy;
   }
 
   function getVal(id) {
