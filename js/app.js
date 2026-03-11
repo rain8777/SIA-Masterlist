@@ -200,24 +200,34 @@ const App = (() => {
       const data = await API.getAll();
       if (!Array.isArray(data)) throw new Error('Invalid response from server');
 
-      // Filter out blank/incomplete records — require at minimum a familyName or givenName
-      const valid = data.filter(r => r && (String(r.familyName||'').trim() || String(r.givenName||'').trim()));
-
-      // SAFETY: only replace allRecords if the server actually returned records.
-      // If valid.length === 0 but we already have data cached, it means something went
-      // wrong (empty sheet, wrong headers, etc.) — keep the existing data so it isn't lost.
-      if (valid.length > 0) {
-        allRecords = valid.map(sanitizeRecord);
-        saveCache(allRecords);
-      } else if (data.length === 0) {
-        // Sheet is genuinely empty — clear records
+      if (data.length === 0) {
+        // Sheet is genuinely empty
         allRecords = [];
         saveCache([]);
       } else {
-        // Got rows but all were blank — suspicious, keep existing records
-        showToast(`⚠️ Sync returned ${data.length} rows but all were blank. Existing data kept.`, 'error');
-        setBtnLoading('btnSync', false, '🔄 Sync Sheets');
-        return;
+        // Filter: keep records that have at least a familyName or givenName.
+        // Also accept any record that has ANY non-empty non-id field, in case
+        // the header mapping produced different key names than expected.
+        const valid = data.filter(r => {
+          if (!r) return false;
+          if (String(r.familyName||'').trim() || String(r.givenName||'').trim()) return true;
+          // Fallback: accept if any key other than id/dateEncoded/encodedBy has a value
+          return Object.entries(r).some(([k, v]) =>
+            k !== 'id' && k !== 'dateEncoded' && k !== 'encodedBy' && String(v||'').trim()
+          );
+        });
+
+        if (valid.length > 0) {
+          allRecords = valid.map(sanitizeRecord);
+          saveCache(allRecords);
+        } else {
+          // Still 0 after both filters — log what keys came back to help diagnose
+          const sampleKeys = data[0] ? Object.keys(data[0]) : [];
+          console.error('Sync: got', data.length, 'rows but all filtered out. Sample keys:', sampleKeys);
+          showToast(`⚠️ Sync got ${data.length} rows but could not read them. Check browser console for details.`, 'error');
+          setBtnLoading('btnSync', false, '🔄 Sync Sheets');
+          return;
+        }
       }
 
       populateBarangayFilter();
