@@ -55,6 +55,7 @@
     <button class="btn-logout" onclick="App.logout()">🚪 Logout</button>
   </div>
 
+
   <!-- Stats bar -->
   <nav class="stats-bar" aria-label="Summary statistics">
     <div class="stats-inner">
@@ -159,7 +160,7 @@
       </button>
       <button class="btn btn-outline" onclick="App.exportCSV()" data-permission="canExport">⬇ CSV</button>
       <button class="btn btn-outline" onclick="window.print()">🖨 Print</button>
-      <button class="btn btn-outline" onclick="App.openConfigPanel()" data-permission="canConfig">⚙️ Config</button>
+      <button class="btn btn-outline" onclick="App.openConfigPanel()" data-permission="canConfig" data-admin-only>⚙️ Config</button>
     </div>
   </div>
 
@@ -167,8 +168,8 @@
   <div class="tabs" role="tablist">
     <button class="tab-btn active" role="tab" aria-selected="true"  onclick="App.switchTab('list',this)">📋 Masterlist</button>
     <button class="tab-btn"        role="tab" aria-selected="false" onclick="App.switchTab('summary',this)">📊 Summary</button>
-    <button class="tab-btn"        role="tab" aria-selected="false" onclick="App.switchTab('audit',this)" data-permission="canConfig">🛡 Audit Log</button>
-    <button class="tab-btn"        role="tab" aria-selected="false" onclick="App.switchTab('instructions',this)">📖 Setup Guide</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" onclick="App.switchTab('audit',this)" data-permission="canConfig" data-admin-only>🛡 Audit Log</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" onclick="App.switchTab('instructions',this)" data-admin-only>📖 Setup Guide</button>
   </div>
 
   <!-- ── TAB: MASTERLIST ─────────────────────────── -->
@@ -560,18 +561,6 @@ vaccinatorMiddle | designation | remarks | dateEncoded | encodedBy</pre>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
 
-<script>
-'use strict';
-// Show session time
-function updateClock() {
-  const s = Security.getSession();
-  if (!s) return;
-  const remaining = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 60000));
-  const el = document.getElementById('sessionTime');
-  if (el) el.textContent = `Session expires in: ${remaining}m`;
-}
-setInterval(updateClock, 30000);
-updateClock();
-</script>
+
 </body>
 </html>
