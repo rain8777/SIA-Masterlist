@@ -52,6 +52,11 @@
     <span>👤 <span class="s-user" id="sessionUser">Loading…</span></span>
     <span class="s-role" id="sessionRole">—</span>
     <span style="margin-left:auto;opacity:.7;font-size:10px;" id="sessionTime"></span>
+    <!-- Notification bell — admin only, shown/hidden by applyRBACToUI -->
+    <button class="btn-notif" id="btnNotif" onclick="App.toggleNotifications()" data-admin-only title="Change Requests" aria-label="Notifications">
+      🔔
+      <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+    </button>
     <button class="btn-logout" onclick="App.logout()">🚪 Logout</button>
   </div>
 
@@ -121,6 +126,21 @@
     </div>
   </div>
 
+
+  <!-- NOTIFICATIONS PANEL (admin only) -->
+  <div class="notif-panel" id="notifPanel" role="region" aria-label="Change Request Notifications" style="display:none;">
+    <div class="notif-panel-header">
+      <h3>🔔 Change Requests</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-outline btn-sm" onclick="App.loadNotifications()">🔄 Refresh</button>
+        <button class="btn btn-ghost btn-sm" onclick="App.toggleNotifications()">✕ Close</button>
+      </div>
+    </div>
+    <div id="notifList" class="notif-list">
+      <div class="notif-empty">No pending change requests.</div>
+    </div>
+  </div>
+
   <!-- TOOLBAR -->
   <div class="toolbar" role="toolbar" aria-label="Actions and filters">
     <div class="toolbar-left">
@@ -164,7 +184,7 @@
         <span class="spinner" id="syncSpinner"></span>
         <span class="btn-text">🔄 Sync Sheets</span>
       </button>
-      <button class="btn btn-outline" onclick="App.exportCSV()" data-permission="canExport">⬇ CSV</button>
+      <button class="btn btn-outline" onclick="App.exportCSV()">⬇ CSV</button>
       <button class="btn btn-outline" onclick="window.print()">🖨 Print</button>
       <button class="btn btn-outline" onclick="App.openConfigPanel()" data-permission="canConfig" data-admin-only>⚙️ Config</button>
     </div>
@@ -554,6 +574,33 @@ vaccinatorMiddle | designation | remarks | dateEncoded | encodedBy</pre>
       <button class="btn btn-primary" onclick="App.saveRecord()" id="saveBtn">
         <span class="spinner" id="saveBtnSpinner"></span>
         <span class="btn-text">💾 Save Record</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ COMMENT MODAL ══════════ -->
+<div class="overlay" id="commentOverlay" role="dialog" aria-modal="true" aria-labelledby="commentModalTitle">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-header">
+      <h2 id="commentModalTitle">💬 Request Change</h2>
+      <button class="modal-close" onclick="App.closeCommentModal()" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="notif-record-info" id="commentRecordInfo"></div>
+      <div class="form-field" style="margin-top:14px;">
+        <label for="commentText">Describe the change needed *</label>
+        <textarea id="commentText" rows="5" maxlength="1000"
+          placeholder="e.g. Date of birth is incorrect — should be 03/15/2024&#10;Vaccine given was bOPV not MR&#10;Wrong barangay — should be BINAHAN PROPER"
+          style="width:100%;font-size:13px;padding:8px;border:1.5px solid var(--border);border-radius:6px;resize:vertical;"></textarea>
+        <div class="field-hint" style="margin-top:4px;">Be specific about what needs to be corrected and what the correct value should be.</div>
+      </div>
+      <div class="login-error" id="commentError" role="alert" style="margin-top:10px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="App.closeCommentModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="App.submitComment()" id="commentSubmitBtn">
+        <span class="btn-text">💬 Submit Request</span>
       </button>
     </div>
   </div>
