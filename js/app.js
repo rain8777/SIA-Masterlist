@@ -67,7 +67,8 @@ const App = (() => {
     // Try to restore cached records for THIS user
     const cached = loadCache();
     if (cached && cached.length > 0) {
-      allRecords = cached;
+      // Filter out any blank records that may have been cached previously
+      allRecords = cached.filter(r => r && (String(r.familyName||'').trim() || String(r.givenName||'').trim()));
       populateBarangayFilter();
       applyFilters();
       updateStats();
@@ -193,13 +194,19 @@ const App = (() => {
     try {
       const data = await API.getAll();
       if (!Array.isArray(data)) throw new Error('Invalid response');
-      allRecords = data.map(sanitizeRecord);
-      saveCache(allRecords);  // persist to sessionStorage so refresh doesn't lose data
+      // Filter out blank/incomplete records — require at minimum a familyName or givenName
+      const valid = data.filter(r => r && (String(r.familyName||'').trim() || String(r.givenName||'').trim()));
+      allRecords = valid.map(sanitizeRecord);
+      saveCache(allRecords);
       populateBarangayFilter();
       applyFilters();
       updateStats();
       renderSummary();
-      showToast(`✅ Synced! ${data.length} records loaded.`, 'success');
+      const skipped = data.length - valid.length;
+      const msg = skipped > 0
+        ? `✅ Synced! ${valid.length} records loaded. (${skipped} blank rows skipped)`
+        : `✅ Synced! ${valid.length} records loaded.`;
+      showToast(msg, 'success');
       Security.auditLog('SYNC_SUCCESS', { count: data.length });
     } catch (e) {
       showToast(`❌ Sync failed: ${e.message}`, 'error');
