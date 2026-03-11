@@ -83,11 +83,18 @@ const API = (() => {
   function buildParams(action, data = {}) {
     const session = Security.getSession();
     const csrfToken = session ? session.csrfToken : '';
-    const sanitized = {};
+
+    // FIX: Do NOT run Security.sanitize() on values going to the sheet.
+    // sanitize() is an HTML-output escaper — it converts '/' → '&#x2F;', which
+    // corrupts dates (03/11/2026 → 03&#x2F;11&#x2F;2026) and any name with
+    // apostrophes or slashes. The sheet must store raw, human-readable values.
+    // Input validation (validateRecord) already guards against malicious input
+    // before this point, so sanitization here is redundant and harmful.
+    const clean = {};
     for (const [k, v] of Object.entries(data)) {
-      sanitized[k] = typeof v === 'string' ? Security.sanitize(v) : v;
+      clean[k] = typeof v === 'string' ? v.trim() : v;
     }
-    return { action, _csrf: csrfToken, ...sanitized };
+    return { action, _csrf: csrfToken, ...clean };
   }
 
   /* ── CORE REQUEST ────────────────────────────────────── */
