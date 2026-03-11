@@ -86,10 +86,19 @@ const AppConfig = (() => {
   const CONFIG_KEY = 'sia_config_v2';
 
   function saveConfig(cfg) {
-    // Basic obfuscation (not encryption — true encryption needs a server key)
+    // FIX #7: Do NOT persist the scriptUrl (Apps Script backend endpoint) to localStorage.
+    // Only truly non-sensitive display settings (memo, campaign name, period) should persist
+    // across sessions. The script URL, while not patient data, exposes your backend endpoint
+    // and is inconsistent with the no-localStorage policy in security.js.
+    const { scriptUrl, ...nonSensitive } = cfg;
+
+    // Session storage holds the full config (including scriptUrl) for this tab's lifetime
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(cfg))));
     sessionStorage.setItem(CONFIG_KEY, encoded);
-    localStorage.setItem(CONFIG_KEY + '_persist', encoded); // Only non-sensitive config persists
+
+    // localStorage only retains non-sensitive display config (no scriptUrl)
+    const encodedPublic = btoa(unescape(encodeURIComponent(JSON.stringify(nonSensitive))));
+    localStorage.setItem(CONFIG_KEY + '_persist', encodedPublic);
   }
 
   function loadConfig() {
