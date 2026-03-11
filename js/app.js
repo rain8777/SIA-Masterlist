@@ -248,10 +248,22 @@ const App = (() => {
   }
 
   function sanitizeRecord(r) {
-    // Do NOT run Security.sanitize() here — it HTML-encodes '/' which corrupts dates like YYYY-MM-DD
-    // and causes double-encoding on repeated syncs. Just trim strings.
+    // Do NOT run Security.sanitize() here — it HTML-encodes '/' which corrupts dates.
+    // FIX: Also decode any &#x2F; / &amp; / &#x27; etc. that were previously written
+    // to the sheet by the old buildParams() bug, so corrupted records heal on next sync.
+    const htmlDecode = (s) => s
+      .replace(/&#x2F;/gi, '/')
+      .replace(/&#x27;/gi, "'")
+      .replace(/&#x3D;/gi, '=')
+      .replace(/&#x60;/gi, '`')
+      .replace(/&quot;/gi, '"')
+      .replace(/&amp;/gi,  '&')
+      .replace(/&lt;/gi,   '<')
+      .replace(/&gt;/gi,   '>');
     const clean = {};
-    for (const [k, v] of Object.entries(r)) clean[k] = typeof v === 'string' ? v.trim() : (v ?? '');
+    for (const [k, v] of Object.entries(r)) {
+      clean[k] = typeof v === 'string' ? htmlDecode(v.trim()) : (v ?? '');
+    }
     return clean;
   }
 
