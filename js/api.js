@@ -202,6 +202,7 @@ const API = (() => {
   return {
     setScriptUrl,
     getScriptUrl,
+    request,       // exposed so app.js can call custom actions (addComment, getComments etc.)
     getAll,
     addRecord,
     updateRecord,
