@@ -217,8 +217,10 @@ const App = (() => {
   }
 
   function sanitizeRecord(r) {
+    // Do NOT run Security.sanitize() here — it HTML-encodes '/' which corrupts dates like YYYY-MM-DD
+    // and causes double-encoding on repeated syncs. Just trim strings.
     const clean = {};
-    for (const [k, v] of Object.entries(r)) clean[k] = typeof v === 'string' ? Security.sanitize(v) : v;
+    for (const [k, v] of Object.entries(r)) clean[k] = typeof v === 'string' ? v.trim() : (v ?? '');
     return clean;
   }
 
