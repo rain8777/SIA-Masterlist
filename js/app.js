@@ -15,6 +15,29 @@ const App = (() => {
   let sortField    = 'familyName';
   let sortDir      = 'asc';
   const PAGE_SIZE  = 25;
+  const CACHE_KEY  = 'sia_records_cache';  // sessionStorage key for record cache
+
+  /* ── CACHE HELPERS ───────────────────────────────────── */
+  function saveCache(records) {
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(records));
+    } catch (e) {
+      console.warn('Cache save failed:', e.message);
+    }
+  }
+
+  function loadCache() {
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (!raw) return null;
+      const records = JSON.parse(raw);
+      return Array.isArray(records) ? records : null;
+    } catch { return null; }
+  }
+
+  function clearCache() {
+    sessionStorage.removeItem(CACHE_KEY);
+  }
 
   /* ── INIT ────────────────────────────────────────────── */
   function init() {
@@ -26,14 +49,31 @@ const App = (() => {
     populateFormDropdowns();
     applyRBACToUI();
     bindEvents();
-    applyFilters();
-    updateStats();
+
+    // Restore cached records first so data survives a page refresh
+    const cached = loadCache();
+    if (cached && cached.length > 0) {
+      allRecords = cached;
+      populateBarangayFilter();
+      applyFilters();
+      updateStats();
+      renderSummary();
+      showToast(`📋 ${cached.length} records restored from session cache.`, '');
+    } else {
+      applyFilters();
+      updateStats();
+    }
 
     // Show session user info
     const s = Security.getSession();
     if (s) {
       document.getElementById('sessionUser').textContent = `${s.name} (${AppConfig.get('scriptUrl') ? '🟢 Connected' : '🔴 No Sheet'})`;
       document.getElementById('sessionRole').textContent = Security.ROLES[s.role]?.label || s.role;
+    }
+
+    // Auto-sync from Google Sheets if URL is configured and no cache exists
+    if (AppConfig.get('scriptUrl') && (!cached || cached.length === 0)) {
+      loadFromSheets();
     }
 
     Security.auditLog('PAGE_LOAD', { page: 'dashboard' });
@@ -133,6 +173,7 @@ const App = (() => {
       const data = await API.getAll();
       if (!Array.isArray(data)) throw new Error('Invalid response');
       allRecords = data.map(sanitizeRecord);
+      saveCache(allRecords);  // persist to sessionStorage so refresh doesn't lose data
       populateBarangayFilter();
       applyFilters();
       updateStats();
@@ -423,11 +464,13 @@ const App = (() => {
         await API.updateRecord(data);
         const idx = allRecords.findIndex(r => r.id === editingId);
         if (idx > -1) allRecords[idx] = data; else allRecords.push(data);
+        saveCache(allRecords);  // update cache
         Security.auditLog('RECORD_UPDATED', { id: editingId, name: data.familyName });
       } else {
         const result = await API.addRecord(data);
         if (result?.id) data.id = result.id;
         allRecords.push(data);
+        saveCache(allRecords);  // update cache
         Security.auditLog('RECORD_ADDED', { id: data.id, name: data.familyName });
       }
       populateBarangayFilter();
@@ -457,6 +500,7 @@ const App = (() => {
     if (!confirm('Permanently delete this record? This action is logged and cannot be undone.')) return;
     const r = allRecords.find(r => r.id === id);
     allRecords = allRecords.filter(r => r.id !== id);
+    saveCache(allRecords);  // update cache
     applyFilters(); updateStats(); renderSummary();
     try {
       await API.deleteRecord(id);
@@ -585,6 +629,7 @@ const App = (() => {
 
   /* ── LOGOUT ──────────────────────────────────────────── */
   function logout() {
+    clearCache();  // clear record cache on logout for privacy
     Security.destroySession('USER_LOGOUT');
     window.location.href = 'login.html';
   }
