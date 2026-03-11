@@ -195,12 +195,17 @@ async function handleLogin() {
       }
     }
 
-    // Fallback: demo users (remove in production and use only Apps Script)
+    // Fallback: built-in users (used when Google Sheet is not yet configured)
+    // Both sides must use the same formula: sha256(plaintext + salt)
+    // Default password for each account = username + "Rhu@2025!"
+    //   e.g. username "administrator" → type "administratorRhu@2025!"
     if (!authenticatedUser) {
-      const demoPassHash = await Security.sha256(username + 'Rhu@2025!RhuRagay2025Salt!');
       const found = Security.DEMO_USERS.find(u => u.username === username);
-      if (found && passwordHash === demoPassHash) {
-        authenticatedUser = found;
+      if (found) {
+        const expectedHash = await Security.sha256(username + 'Rhu@2025!' + 'RhuRagay2025Salt!');
+        if (passwordHash === expectedHash) {
+          authenticatedUser = found;
+        }
       }
     }
 
